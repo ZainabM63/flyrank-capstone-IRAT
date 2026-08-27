@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Matching Engine - Review Dashboard</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h1 { margin-top: 0; color: #111; font-size: 24px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; }
+        input, button { padding: 10px 14px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+        input { width: 60%; margin-right: 10px; }
+        button { background: #2563eb; color: white; border: none; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        .card { border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px; margin-top: 20px; background: #fafafa; }
+        .badge { display: inline-block; padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 4px; text-transform: uppercase; }
+        .approved { background: #dcfce7; color: #166534; }
+        .rejected { background: #fee2e2; color: #991b1b; }
+        .actions { margin-top: 15px; }
+        .btn-approve { background: #16a34a; margin-right: 10px; color: white; }
+        .btn-reject { background: #dc2626; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Image Matching & Review Dashboard</h1>
+        <p>Inspect semantic image suggestions and test the mismatch guard safety layer.</p>
+        
+        <div class="form-group">
+            <label for="postId">Blog Post ID:</label>
+            <input type="text" id="postId" value="post-1">
+            <button onclick="fetchSuggestions()">Fetch Suggestions</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function fetchSuggestions() {
+            const postId = document.getElementById('postId').value;
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = "<p>Loading suggestions and evaluating mismatch guard...</p>";
+
+            try {
+                const response = await fetch(`/posts/${postId}/images`);
+                if (!response.ok) throw new Error("Post not found or network error.");
+                const data = await response.json();
+
+                let html = `<h2>Suggestions for: ${data.post_id}</h2>`;
+                
+                data.suggestions.forEach(item => {
+                    const statusClass = item.guard_evaluation.status === 'APPROVED' ? 'approved' : 'rejected';
+                    html += `
+                        <div class="card">
+                            <p><strong>Image URL:</strong> <a href="${item.image_url}" target="_blank">${item.image_url}</a></p>
+                            <p><strong>Caption:</strong> ${item.caption}</p>
+                            <p><strong>Similarity Score:</strong> ${item.similarity_score}</p>
+                            <p><strong>Guard Status:</strong> <span class="badge ${statusClass}">${item.guard_evaluation.status}</span></p>
+                            <p><strong>Reason:</strong> ${item.guard_evaluation.reason}</p>
+                            <div class="actions">
+                                <button class="btn-approve" onclick="submitReview('${data.post_id}', '${item.image_url}', 'APPROVE', '${item.guard_evaluation.reason}')">Approve</button>
+                                <button class="btn-reject" onclick="submitReview('${data.post_id}', '${item.image_url}', 'REJECT', '${item.guard_evaluation.reason}')">Reject</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                resultsDiv.innerHTML = html;
+            } catch (err) {
+                resultsDiv.innerHTML = `<p style="color: red;">Error: ${err.message}</p>`;
+            }
+        }
+
+        async function submitReview(postId, imageUrl, action, reason) {
+            const response = await fetch('/reviews', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ post_id: postId, image_url: imageUrl, action: action, reason: reason })
+            });
+            const result = await response.json();
+            alert(`Review Recorded: ${result.record.action} successfully!`);
+        }
+    </script>
+</body>
+</html>
